@@ -49,19 +49,12 @@ class InteractiveCodeAnalyzer(CodeAnalyzer):
                 'comment', 'string_start', 'string_end', 'string_content',
                 'indent', 'dedent', 'newline', 'escape_sequence',
             }
-            if clean_level in ["clean", "ultra"]:
+            if clean_level in ["clean"]:
                 base_skip.update({
                     'binary_operator', 
                     'module',
                     'parenthesized_expression',
                     'expression_statement',
-                })
-            if clean_level == "ultra":
-                base_skip.update({
-                    'block',
-                    'argument_list',
-                    'parameter_list',
-                    'arguments',  
                 })
             if node.type in base_skip:
                 return False
@@ -72,11 +65,6 @@ class InteractiveCodeAnalyzer(CodeAnalyzer):
                 return False
             if not node_text or node_text.isspace():
                 return False
-            if clean_level == "ultra" and node.child_count == 1:
-                child = node.children[0]
-                child_text = src[child.start_byte:child.end_byte].decode("utf8").strip()
-                if node_text == child_text and node.type != child.type:
-                    return False
 
             return True
 

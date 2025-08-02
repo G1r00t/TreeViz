@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Interactive AST Visualizer</title>
+    <title>AST Visualizer</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
     <style>
         * {
@@ -13,10 +13,11 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            background: #0a0a0a;
             min-height: 100vh;
-            color: #333;
+            color: #e0e0e0;
+            font-size: 14px;
         }
 
         .container {
@@ -26,49 +27,52 @@
         }
 
         .header {
-            text-align: center;
-            margin-bottom: 30px;
-            color: white;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 15px;
         }
 
         .header h1 {
-            font-size: 2.5em;
-            margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            font-size: 18px;
+            font-weight: 500;
+            color: #ffffff;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            font-size: 12px;
+            color: #888;
         }
 
         .controls {
-            background: white;
-            padding: 20px;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            padding: 15px;
+            margin-bottom: 15px;
             display: flex;
             gap: 15px;
-            flex-wrap: wrap;
-            align-items: center;
+            align-items: flex-start;
         }
 
         .input-group {
             flex: 1;
-            min-width: 300px;
         }
 
         textarea {
             width: 100%;
             height: 120px;
-            padding: 12px;
-            border: 2px solid #e1e5e9;
-            border-radius: 8px;
-            font-family: 'Consolas', 'Monaco', monospace;
-            font-size: 14px;
+            padding: 10px;
+            background: #0f0f0f;
+            border: 1px solid #444;
+            color: #e0e0e0;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 13px;
             resize: vertical;
-            transition: border-color 0.3s;
+            outline: none;
         }
 
         textarea:focus {
-            outline: none;
-            border-color: #667eea;
+            border-color: #666;
         }
 
         .file-upload {
@@ -83,34 +87,32 @@
         }
 
         .btn {
-            background: linear-gradient(45deg, #667eea, #764ba2);
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 8px;
+            background: #2a2a2a;
+            color: #e0e0e0;
+            border: 1px solid #444;
+            padding: 8px 16px;
             cursor: pointer;
-            font-size: 16px;
-            font-weight: 600;
-            transition: all 0.3s;
-            min-width: 120px;
+            font-size: 13px;
+            font-family: inherit;
+            transition: all 0.2s;
+            min-width: 100px;
         }
 
         .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            background: #333;
+            border-color: #555;
         }
 
         .btn:disabled {
-            opacity: 0.6;
+            opacity: 0.5;
             cursor: not-allowed;
-            transform: none;
         }
 
         .metadata {
-            background: white;
+            background: #1a1a1a;
+            border: 1px solid #333;
             padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
             display: none;
         }
 
@@ -118,35 +120,52 @@
             display: block;
         }
 
+        .metadata h3 {
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 10px;
+            color: #fff;
+        }
+
         .metadata-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
+            gap: 10px;
         }
 
         .metadata-item {
-            background: #f8f9fa;
+            background: #0f0f0f;
+            border: 1px solid #333;
             padding: 10px;
-            border-radius: 8px;
-            border-left: 4px solid #667eea;
+            font-size: 12px;
+        }
+
+        .metadata-item strong {
+            color: #fff;
+            display: block;
+            margin-bottom: 5px;
         }
 
         .visualization-container {
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            background: #1a1a1a;
+            border: 1px solid #333;
             overflow: hidden;
-            position: relative;
         }
 
         .visualization-header {
-            background: linear-gradient(45deg, #667eea, #764ba2);
-            color: white;
-            padding: 15px 20px;
+            background: #0f0f0f;
+            border-bottom: 1px solid #333;
+            padding: 10px 15px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             flex-wrap: wrap;
+        }
+
+        .visualization-header h3 {
+            font-size: 14px;
+            font-weight: 500;
+            color: #fff;
         }
 
         .header-controls {
@@ -158,67 +177,59 @@
 
         .zoom-controls {
             display: flex;
-            gap: 10px;
+            gap: 5px;
         }
 
         .filter-toggle {
             display: flex;
             align-items: center;
             gap: 8px;
-            background: rgba(255,255,255,0.1);
-            padding: 8px 12px;
-            border-radius: 5px;
-            border: 1px solid rgba(255,255,255,0.2);
-        }
-
-        .filter-toggle select {
-            background: rgba(0,0,0,0.2);
-            color: white;
-            border: 1px solid rgba(255,255,255,0.3);
-            border-radius: 3px;
-            padding: 4px 8px;
-            font-size: 14px;
-        }
-
-        .filter-toggle select option {
-            background: #333;
-            color: white;
         }
 
         .filter-toggle label {
-            margin: 0;
-            font-size: 14px;
-            cursor: pointer;
+            font-size: 12px;
+            color: #ccc;
+        }
+
+        .filter-toggle select {
+            background: #0a0a0a;
+            color: #e0e0e0;
+            border: 1px solid #444;
+            padding: 4px 8px;
+            font-size: 12px;
+            font-family: inherit;
         }
 
         .zoom-btn {
-            background: rgba(255,255,255,0.2);
-            border: 1px solid rgba(255,255,255,0.3);
-            color: white;
-            padding: 8px 12px;
-            border-radius: 5px;
+            background: #2a2a2a;
+            border: 1px solid #444;
+            color: #e0e0e0;
+            padding: 6px 10px;
             cursor: pointer;
-            transition: all 0.3s;
+            font-size: 11px;
+            font-family: inherit;
+            transition: all 0.2s;
         }
 
         .zoom-btn:hover {
-            background: rgba(255,255,255,0.3);
+            background: #333;
         }
 
         #visualization {
             width: 100%;
             height: 600px;
             border: none;
+            background: #0a0a0a;
         }
 
         .node {
             cursor: grab;
-            transition: all 0.3s;
+            transition: all 0.2s;
         }
 
         .node:hover {
-            stroke: #333;
-            stroke-width: 3px;
+            stroke: #666;
+            stroke-width: 2px;
         }
 
         .node.dragging {
@@ -226,28 +237,29 @@
         }
 
         .link {
-            stroke: #999;
-            stroke-width: 2;
+            stroke: #444;
+            stroke-width: 1;
             fill: none;
             marker-end: url(#arrowhead);
         }
 
         .node-label {
-            font-family: 'Segoe UI', sans-serif;
-            font-size: 12px;
-            font-weight: 600;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 11px;
+            font-weight: 400;
             text-anchor: middle;
             pointer-events: none;
-            fill: #333;
+            fill: #ccc;
         }
 
         .tooltip {
             position: absolute;
-            background: rgba(0,0,0,0.9);
-            color: white;
-            padding: 10px;
-            border-radius: 8px;
-            font-size: 12px;
+            background: #1a1a1a;
+            border: 1px solid #444;
+            color: #e0e0e0;
+            padding: 8px;
+            font-size: 11px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
             pointer-events: none;
             z-index: 1000;
             max-width: 300px;
@@ -258,15 +270,16 @@
             text-align: center;
             padding: 50px;
             color: #666;
+            font-size: 12px;
         }
 
         .error {
-            background: #ffe6e6;
-            color: #d63031;
-            padding: 15px;
-            border-radius: 8px;
-            margin: 20px 0;
-            border-left: 4px solid #d63031;
+            background: #2a1a1a;
+            color: #ff6b6b;
+            border: 1px solid #442;
+            padding: 10px;
+            margin: 15px 0;
+            font-size: 12px;
         }
 
         @media (max-width: 768px) {
@@ -279,7 +292,7 @@
             }
             
             .header h1 {
-                font-size: 2em;
+                font-size: 16px;
             }
         }
     </style>
@@ -287,13 +300,13 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🌳 Interactive AST Visualizer</h1>
-            <p>Drag, zoom, and explore your Python code's Abstract Syntax Tree</p>
+            <h1>AST Visualizer</h1>
+            <p>Python Abstract Syntax Tree visualization</p>
         </div>
 
         <div class="controls">
             <div class="input-group">
-                <textarea id="codeInput" placeholder="Paste your Python code here...">def hello_world():
+                <textarea id="codeInput" placeholder="# Paste your Python code here...">def hello_world():
     print("Hello, World!")
     return "success"
 
@@ -309,17 +322,17 @@ if __name__ == "__main__":
     hello_world()
     print(obj.get_value())</textarea>
             </div>
-            <div style="display: flex; flex-direction: column; gap: 10px;">
-                <button id="analyzeBtn" class="btn">Analyze Code</button>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                <button id="analyzeBtn" class="btn">Analyze</button>
                 <div class="file-upload">
                     <input type="file" id="fileInput" accept=".py">
-                    <button class="btn" onclick="document.getElementById('fileInput').click()">Upload File</button>
+                    <button class="btn" onclick="document.getElementById('fileInput').click()">Upload</button>
                 </div>
             </div>
         </div>
 
         <div id="metadata" class="metadata">
-            <h3>Code Analysis</h3>
+            <h3>Analysis</h3>
             <div id="metadataContent" class="metadata-grid"></div>
         </div>
 
@@ -330,17 +343,16 @@ if __name__ == "__main__":
                 <h3>Abstract Syntax Tree</h3>
                 <div class="header-controls">
                     <div class="filter-toggle">
-                        <label for="cleanLevel">View Level:</label>
+                        <label for="cleanLevel">Level:</label>
                         <select id="cleanLevel">
-                            <option value="ultra">Ultra Clean</option>
                             <option value="clean" selected>Clean</option>
                             <option value="detailed">Detailed</option>
                             <option value="full">Full AST</option>
                         </select>
                     </div>
                     <div class="zoom-controls">
-                        <button class="zoom-btn" onclick="zoomIn()">Zoom In</button>
-                        <button class="zoom-btn" onclick="zoomOut()">Zoom Out</button>
+                        <button class="zoom-btn" onclick="zoomIn()">+</button>
+                        <button class="zoom-btn" onclick="zoomOut()">-</button>
                         <button class="zoom-btn" onclick="resetZoom()">Reset</button>
                         <button class="zoom-btn" onclick="centerView()">Center</button>
                     </div>
@@ -377,7 +389,7 @@ if __name__ == "__main__":
                 .attr("orient", "auto")
                 .append("path")
                 .attr("d", "M0,-5L10,0L0,5")
-                .attr("fill", "#999");
+                .attr("fill", "#444");
 
             // Create zoom behavior
             zoom = d3.zoom()
@@ -536,19 +548,19 @@ if __name__ == "__main__":
             
             contentDiv.innerHTML = `
                 <div class="metadata-item">
-                    <strong>Functions:</strong><br>
+                    <strong>Functions:</strong>
                     ${metadata.functions.length > 0 ? metadata.functions.join(', ') : 'None'}
                 </div>
                 <div class="metadata-item">
-                    <strong>Classes:</strong><br>
+                    <strong>Classes:</strong>
                     ${metadata.classes.length > 0 ? metadata.classes.join(', ') : 'None'}
                 </div>
                 <div class="metadata-item">
-                    <strong>Imports:</strong><br>
+                    <strong>Imports:</strong>
                     ${metadata.imports.length > 0 ? metadata.imports.join('<br>') : 'None'}
                 </div>
                 <div class="metadata-item">
-                    <strong>Total Nodes:</strong><br>
+                    <strong>Total Nodes:</strong>
                     ${metadata.total_nodes}
                 </div>
             `;
@@ -598,11 +610,11 @@ if __name__ == "__main__":
                 displayMetadata(data.metadata);
 
                 analyzeBtn.disabled = false;
-                analyzeBtn.textContent = 'Analyze Code';
+                analyzeBtn.textContent = 'Analyze';
             } catch (error) {
                 showError(error.message);
                 document.getElementById('analyzeBtn').disabled = false;
-                document.getElementById('analyzeBtn').textContent = 'Analyze Code';
+                document.getElementById('analyzeBtn').textContent = 'Analyze';
             }
         }
 
