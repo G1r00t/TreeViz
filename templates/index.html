@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive AST Visualizer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .controls {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .input-group {
+            flex: 1;
+            min-width: 300px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 120px;
+            padding: 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            resize: vertical;
+            transition: border-color 0.3s;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .file-upload {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+        }
+
+        .file-upload input[type=file] {
+            position: absolute;
+            left: -9999px;
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s;
+            min-width: 120px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .metadata {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .metadata.show {
+            display: block;
+        }
+
+        .metadata-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .metadata-item {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .visualization-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .visualization-header {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .zoom-controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .filter-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255,255,255,0.1);
+            padding: 8px 12px;
+            border-radius: 5px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .filter-toggle select {
+            background: rgba(0,0,0,0.2);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 3px;
+            padding: 4px 8px;
+            font-size: 14px;
+        }
+
+        .filter-toggle select option {
+            background: #333;
+            color: white;
+        }
+
+        .filter-toggle label {
+            margin: 0;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .zoom-btn {
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .zoom-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        #visualization {
+            width: 100%;
+            height: 600px;
+            border: none;
+        }
+
+        .node {
+            cursor: grab;
+            transition: all 0.3s;
+        }
+
+        .node:hover {
+            stroke: #333;
+            stroke-width: 3px;
+        }
+
+        .node.dragging {
+            cursor: grabbing;
+        }
+
+        .link {
+            stroke: #999;
+            stroke-width: 2;
+            fill: none;
+            marker-end: url(#arrowhead);
+        }
+
+        .node-label {
+            font-family: 'Segoe UI', sans-serif;
+            font-size: 12px;
+            font-weight: 600;
+            text-anchor: middle;
+            pointer-events: none;
+            fill: #333;
+        }
+
+        .tooltip {
+            position: absolute;
+            background: rgba(0,0,0,0.9);
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            pointer-events: none;
+            z-index: 1000;
+            max-width: 300px;
+            word-wrap: break-word;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 50px;
+            color: #666;
+        }
+
+        .error {
+            background: #ffe6e6;
+            color: #d63031;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #d63031;
+        }
+
+        @media (max-width: 768px) {
+            .controls {
+                flex-direction: column;
+            }
+            
+            .input-group {
+                min-width: 100%;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌳 Interactive AST Visualizer</h1>
+            <p>Drag, zoom, and explore your Python code's Abstract Syntax Tree</p>
+        </div>
+
+        <div class="controls">
+            <div class="input-group">
+                <textarea id="codeInput" placeholder="Paste your Python code here...">def hello_world():
+    print("Hello, World!")
+    return "success"
+
+class MyClass:
+    def __init__(self):
+        self.value = 42
+    
+    def get_value(self):
+        return self.value
+
+if __name__ == "__main__":
+    obj = MyClass()
+    hello_world()
+    print(obj.get_value())</textarea>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <button id="analyzeBtn" class="btn">Analyze Code</button>
+                <div class="file-upload">
+                    <input type="file" id="fileInput" accept=".py">
+                    <button class="btn" onclick="document.getElementById('fileInput').click()">Upload File</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="metadata" class="metadata">
+            <h3>Code Analysis</h3>
+            <div id="metadataContent" class="metadata-grid"></div>
+        </div>
+
+        <div id="errorContainer"></div>
+
+        <div class="visualization-container">
+            <div class="visualization-header">
+                <h3>Abstract Syntax Tree</h3>
+                <div class="header-controls">
+                    <div class="filter-toggle">
+                        <label for="cleanLevel">View Level:</label>
+                        <select id="cleanLevel">
+                            <option value="ultra">Ultra Clean</option>
+                            <option value="clean" selected>Clean</option>
+                            <option value="detailed">Detailed</option>
+                            <option value="full">Full AST</option>
+                        </select>
+                    </div>
+                    <div class="zoom-controls">
+                        <button class="zoom-btn" onclick="zoomIn()">Zoom In</button>
+                        <button class="zoom-btn" onclick="zoomOut()">Zoom Out</button>
+                        <button class="zoom-btn" onclick="resetZoom()">Reset</button>
+                        <button class="zoom-btn" onclick="centerView()">Center</button>
+                    </div>
+                </div>
+            </div>
+            <svg id="visualization"></svg>
+        </div>
+    </div>
+
+    <div id="tooltip" class="tooltip" style="display: none;"></div>
+
+    <script>
+        // Global variables
+        let svg, g, simulation, nodes = [], links = [];
+        let zoom, width = 1200, height = 600;
+
+        // Initialize visualization
+        function initVisualization() {
+            svg = d3.select("#visualization")
+                .attr("width", width)
+                .attr("height", height);
+
+            // Clear previous content
+            svg.selectAll("*").remove();
+
+            // Add arrow marker
+            svg.append("defs").append("marker")
+                .attr("id", "arrowhead")
+                .attr("viewBox", "0 -5 10 10")
+                .attr("refX", 20)
+                .attr("refY", 0)
+                .attr("markerWidth", 6)
+                .attr("markerHeight", 6)
+                .attr("orient", "auto")
+                .append("path")
+                .attr("d", "M0,-5L10,0L0,5")
+                .attr("fill", "#999");
+
+            // Create zoom behavior
+            zoom = d3.zoom()
+                .scaleExtent([0.1, 3])
+                .on("zoom", (event) => {
+                    g.attr("transform", event.transform);
+                });
+
+            svg.call(zoom);
+
+            // Create main group
+            g = svg.append("g");
+        }
+
+        // Create force simulation
+        function createSimulation() {
+            simulation = d3.forceSimulation(nodes)
+                .force("link", d3.forceLink(links).id(d => d.id).distance(80))
+                .force("charge", d3.forceManyBody().strength(-300))
+                .force("center", d3.forceCenter(width / 2, height / 2))
+                .force("collision", d3.forceCollide().radius(d => d.size + 5));
+        }
+
+        // Render visualization
+        function renderVisualization(data) {
+            nodes = data.nodes;
+            links = data.links;
+
+            initVisualization();
+            createSimulation();
+
+            // Create links
+            const link = g.append("g")
+                .selectAll("line")
+                .data(links)
+                .enter().append("line")
+                .attr("class", "link");
+
+            // Create nodes
+            const node = g.append("g")
+                .selectAll("circle")
+                .data(nodes)
+                .enter().append("circle")
+                .attr("class", "node")
+                .attr("r", d => d.size)
+                .attr("fill", d => d.color)
+                .call(d3.drag()
+                    .on("start", dragstarted)
+                    .on("drag", dragged)
+                    .on("end", dragended))
+                .on("mouseover", showTooltip)
+                .on("mouseout", hideTooltip)
+                .on("click", nodeClicked);
+
+            // Create labels
+            const labels = g.append("g")
+                .selectAll("text")
+                .data(nodes)
+                .enter().append("text")
+                .attr("class", "node-label")
+                .text(d => d.label || d.type)
+                .attr("dy", d => d.size + 15);
+
+            // Update positions on simulation tick
+            simulation.on("tick", () => {
+                link
+                    .attr("x1", d => d.source.x)
+                    .attr("y1", d => d.source.y)
+                    .attr("x2", d => d.target.x)
+                    .attr("y2", d => d.target.y);
+
+                node
+                    .attr("cx", d => d.x)
+                    .attr("cy", d => d.y);
+
+                labels
+                    .attr("x", d => d.x)
+                    .attr("y", d => d.y);
+            });
+        }
+
+        // Drag functions
+        function dragstarted(event, d) {
+            if (!event.active) simulation.alphaTarget(0.3).restart();
+            d.fx = d.x;
+            d.fy = d.y;
+            d3.select(this).classed("dragging", true);
+        }
+
+        function dragged(event, d) {
+            d.fx = event.x;
+            d.fy = event.y;
+        }
+
+        function dragended(event, d) {
+            if (!event.active) simulation.alphaTarget(0);
+            d.fx = null;
+            d.fy = null;
+            d3.select(this).classed("dragging", false);
+        }
+
+        // Tooltip functions
+        function showTooltip(event, d) {
+            const tooltip = d3.select("#tooltip");
+            const fullText = d.full_text || d.text;
+            tooltip.style("display", "block")
+                .html(`
+                    <strong>Type:</strong> ${d.type}<br>
+                    <strong>Text:</strong> ${fullText}<br>
+                    <strong>Position:</strong> [${d.start_point[0]}:${d.start_point[1]}] - [${d.end_point[0]}:${d.end_point[1]}]<br>
+                    <strong>Children:</strong> ${d.child_count}
+                `)
+                .style("left", (event.pageX + 10) + "px")
+                .style("top", (event.pageY + 10) + "px");
+        }
+
+        function hideTooltip() {
+            d3.select("#tooltip").style("display", "none");
+        }
+
+        function nodeClicked(event, d) {
+            console.log("Node clicked:", d);
+            // You can add more click functionality here
+        }
+
+        // Zoom controls
+        function zoomIn() {
+            svg.transition().duration(300).call(zoom.scaleBy, 1.5);
+        }
+
+        function zoomOut() {
+            svg.transition().duration(300).call(zoom.scaleBy, 1 / 1.5);
+        }
+
+        function resetZoom() {
+            svg.transition().duration(500).call(zoom.transform, d3.zoomIdentity);
+        }
+
+        function centerView() {
+            const bounds = g.node().getBBox();
+            const fullWidth = width;
+            const fullHeight = height;
+            const centerX = bounds.x + bounds.width / 2;
+            const centerY = bounds.y + bounds.height / 2;
+            
+            const scale = 0.8 / Math.max(bounds.width / fullWidth, bounds.height / fullHeight);
+            const translate = [fullWidth / 2 - scale * centerX, fullHeight / 2 - scale * centerY];
+            
+            svg.transition().duration(750).call(zoom.transform, d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale));
+        }
+
+        // Display metadata
+        function displayMetadata(metadata) {
+            const metadataDiv = document.getElementById('metadata');
+            const contentDiv = document.getElementById('metadataContent');
+            
+            contentDiv.innerHTML = `
+                <div class="metadata-item">
+                    <strong>Functions:</strong><br>
+                    ${metadata.functions.length > 0 ? metadata.functions.join(', ') : 'None'}
+                </div>
+                <div class="metadata-item">
+                    <strong>Classes:</strong><br>
+                    ${metadata.classes.length > 0 ? metadata.classes.join(', ') : 'None'}
+                </div>
+                <div class="metadata-item">
+                    <strong>Imports:</strong><br>
+                    ${metadata.imports.length > 0 ? metadata.imports.join('<br>') : 'None'}
+                </div>
+                <div class="metadata-item">
+                    <strong>Total Nodes:</strong><br>
+                    ${metadata.total_nodes}
+                </div>
+            `;
+            
+            metadataDiv.classList.add('show');
+        }
+
+        // Show error
+        function showError(message) {
+            const errorContainer = document.getElementById('errorContainer');
+            errorContainer.innerHTML = `<div class="error">Error: ${message}</div>`;
+        }
+
+        // Clear error
+        function clearError() {
+            document.getElementById('errorContainer').innerHTML = '';
+        }
+
+        // Analyze code
+        async function analyzeCode(code) {
+            try {
+                clearError();
+                const analyzeBtn = document.getElementById('analyzeBtn');
+                analyzeBtn.disabled = true;
+                analyzeBtn.textContent = 'Analyzing...';
+
+                const cleanLevel = document.getElementById('cleanLevel').value;
+                
+                const response = await fetch('/analyze', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        code: code,
+                        clean_level: cleanLevel 
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Analysis failed');
+                }
+
+                renderVisualization(data);
+                displayMetadata(data.metadata);
+
+                analyzeBtn.disabled = false;
+                analyzeBtn.textContent = 'Analyze Code';
+            } catch (error) {
+                showError(error.message);
+                document.getElementById('analyzeBtn').disabled = false;
+                document.getElementById('analyzeBtn').textContent = 'Analyze Code';
+            }
+        }
+
+        // Clean level change handler
+        document.getElementById('cleanLevel').addEventListener('change', () => {
+            const code = document.getElementById('codeInput').value;
+            if (code.trim()) {
+                analyzeCode(code);
+            }
+        });
+
+        // Event listeners
+        document.getElementById('analyzeBtn').addEventListener('click', () => {
+            const code = document.getElementById('codeInput').value;
+            if (code.trim()) {
+                analyzeCode(code);
+            } else {
+                showError('Please enter some Python code to analyze');
+            }
+        });
+
+        document.getElementById('fileInput').addEventListener('change', async (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                try {
+                    clearError();
+                    const formData = new FormData();
+                    formData.append('file', file);
+
+                    const response = await fetch('/analyze_file', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                        throw new Error(data.error || 'File analysis failed');
+                    }
+
+                    renderVisualization(data);
+                    displayMetadata(data.metadata);
+                } catch (error) {
+                    showError(error.message);
+                }
+            }
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (event) => {
+            if (event.ctrlKey || event.metaKey) {
+                switch (event.key) {
+                    case 'Enter':
+                        event.preventDefault();
+                        document.getElementById('analyzeBtn').click();
+                        break;
+                    case '=':
+                    case '+':
+                        event.preventDefault();
+                        zoomIn();
+                        break;
+                    case '-':
+                        event.preventDefault();
+                        zoomOut();
+                        break;
+                    case '0':
+                        event.preventDefault();
+                        resetZoom();
+                        break;
+                }
+            }
+        });
+
+        // Initialize with default code
+        window.addEventListener('load', () => {
+            const defaultCode = document.getElementById('codeInput').value;
+            if (defaultCode.trim()) {
+                analyzeCode(defaultCode);
+            }
+        });
+    </script>
+</body>
+</html>
