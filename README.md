@@ -42,10 +42,38 @@ The system filters and processes nodes based on types and context to keep the ou
 
 ---
 
+## Code Structure
+
+### 🔹 [`main.py`](./main.py)
+
+This file contains the core **Tree-sitter integration** logic:
+
+- Initializes the Tree-sitter parser for Python using `tree_sitter` bindings.
+- Defines the `CodeAnalyzer` class, which:
+  - Parses a Python file using Tree-sitter.
+  - Traverses the resulting AST to extract:
+    - Import statements
+    - Function definitions
+  - Prints a structured tree representation of the AST to the console.
+
+### 🔹 [`app.py`](./app.py)
+
+This is the main **Flask application** file and builds upon `main.py`:
+
+- Imports and extends the `CodeAnalyzer` class with `InteractiveCodeAnalyzer`.
+- `InteractiveCodeAnalyzer` adds support for:
+  - Direct analysis of **code content** (not just files).
+  - Extracting additional constructs like `class_definition`.
+  - Constructing a **filtered and annotated AST structure** suitable for frontend visualization.
+- Defines REST API endpoints:
+  - `/analyze` – Accepts raw code via JSON.
+  - `/analyze_file` – Accepts uploaded `.py` files.
+  - `/` – Serves the frontend.
+
+This architecture keeps the core AST parsing logic reusable and separate from the web server logic.
+
+
 ## Try It Live
-
-You can use the live version of the app here:
-
 **[https://treeviz.up.railway.app/](https://treeviz.up.railway.app/)**
 
 ### What You Can Do:
