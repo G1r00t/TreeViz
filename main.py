@@ -1,5 +1,4 @@
 from tree_sitter import Language, Parser
-from graphviz import Digraph
 import logging
 
 logging.basicConfig(level=logging.DEBUG)
