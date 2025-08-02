@@ -86,7 +86,7 @@ This architecture keeps the core AST parsing logic reusable and separate from th
 
 ## Supported Language
 
--For now we have python only , gonna add more
+- For now we have python , gonna add more
 
 ---
 
